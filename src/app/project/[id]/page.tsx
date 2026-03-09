@@ -4,8 +4,11 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useCanvasStore } from "@/stores/useCanvasStore"
 import { Canvas } from "@/components/canvas/Canvas"
+import { LeftPanel } from "@/components/panels/LeftPanel"
+import { RightPanel } from "@/components/panels/RightPanel"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { ArrowLeft, Code2, Download, Settings, Command } from "lucide-react"
+import { ReactFlowProvider } from "@xyflow/react"
 
 export default function ProjectWorkspace() {
   const params = useParams()
@@ -103,11 +106,12 @@ export default function ProjectWorkspace() {
 
       {/* Canvas Area */}
       <main className="flex-1 w-full h-full relative">
-        <Canvas />
+        <ReactFlowProvider>
+          <Canvas />
+          <LeftPanel />
+          <RightPanel />
+        </ReactFlowProvider>
       </main>
-
-      {/* Side Panels placeholders (Left Panel / Right Panel) */}
-      {/* These will overlay the canvas or slide in from sides */}
     </div>
   )
 }
