@@ -25,7 +25,7 @@ export interface Column {
   order: number;
 }
 
-export interface Table {
+export interface Table extends Record<string, unknown> {
   id: string;
   name: string;
   position: { x: number; y: number };
@@ -35,7 +35,7 @@ export interface Table {
   comment: string | null;
 }
 
-export interface Relationship {
+export interface Relationship extends Record<string, unknown> {
   id: string;
   sourceTableId: string;
   sourceColumnId: string;
