@@ -6,6 +6,7 @@ import { useCanvasStore } from "@/stores/useCanvasStore"
 import { Canvas } from "@/components/canvas/Canvas"
 import { LeftPanel } from "@/components/panels/LeftPanel"
 import { RightPanel } from "@/components/panels/RightPanel"
+import { SqlModal } from "@/components/modals/SqlModal"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { ArrowLeft, Code2, Download, Settings, Command } from "lucide-react"
 import { ReactFlowProvider } from "@xyflow/react"
@@ -17,14 +18,13 @@ export default function ProjectWorkspace() {
 
   const { loadProject, project, isLoading } = useCanvasStore()
 
-  // Local state to manage the top bar renaming
   const [isRenaming, setIsRenaming] = useState(false)
   const [editName, setEditName] = useState("")
+  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false)
 
   useEffect(() => {
     if (projectId) {
       loadProject(projectId).then(() => {
-         // Initialize name editing state once loaded
          const proj = useCanvasStore.getState().project;
          if(proj) setEditName(proj.name);
       });
@@ -39,7 +39,6 @@ export default function ProjectWorkspace() {
     return <div className="h-screen w-full flex items-center justify-center bg-bg-primary text-accent-red">Project not found</div>
   }
 
-  // Pending implementation of global store rename
   const handleRename = () => {
     setIsRenaming(false);
     // TODO: wire up global rename
@@ -47,7 +46,6 @@ export default function ProjectWorkspace() {
 
   return (
     <div className="h-screen w-full bg-bg-primary flex flex-col overflow-hidden relative">
-      {/* Top Bar (glass) */}
       <header className="h-14 border-b border-glass-border bg-glass-bg flex items-center justify-between px-4 shrink-0 relative z-50 backdrop-blur-xl">
          <div className="flex items-center space-x-4">
             <button
@@ -89,7 +87,12 @@ export default function ProjectWorkspace() {
 
             <div className="w-[1px] h-4 bg-glass-border mx-2" />
 
-            <GlassButton variant="primary" size="sm" className="space-x-1.5 shadow-none">
+            <GlassButton
+              variant="primary"
+              size="sm"
+              className="space-x-1.5 shadow-none"
+              onClick={() => setIsSqlModalOpen(true)}
+            >
               <Code2 className="w-4 h-4" />
               <span>SQL</span>
             </GlassButton>
@@ -104,7 +107,6 @@ export default function ProjectWorkspace() {
          </div>
       </header>
 
-      {/* Canvas Area */}
       <main className="flex-1 w-full h-full relative">
         <ReactFlowProvider>
           <Canvas />
@@ -112,6 +114,8 @@ export default function ProjectWorkspace() {
           <RightPanel />
         </ReactFlowProvider>
       </main>
+
+      <SqlModal isOpen={isSqlModalOpen} onClose={() => setIsSqlModalOpen(false)} />
     </div>
   )
 }
