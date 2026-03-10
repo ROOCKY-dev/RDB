@@ -24,14 +24,14 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   if (!project) return null;
 
   const handleExportPng = async () => {
+    const toastId = toast.loading('Generating PNG export...');
     try {
       setExportingType('png');
-      const toastId = toast.loading('Generating PNG export...');
       await exportToPng(project, { transparent: transparentBg });
       toast.success('Exported PNG successfully', { id: toastId });
       onClose();
     } catch (err) {
-      toast.error('Failed to export PNG');
+      toast.error('Failed to export PNG', { id: toastId });
       console.error(err);
     } finally {
       setExportingType(null);
@@ -39,14 +39,14 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   };
 
   const handleExportSvg = async () => {
+    const toastId = toast.loading('Generating SVG export...');
     try {
       setExportingType('svg');
-      const toastId = toast.loading('Generating SVG export...');
       await exportToSvg(project, { transparent: transparentBg });
       toast.success('Exported SVG successfully', { id: toastId });
       onClose();
     } catch (err) {
-      toast.error('Failed to export SVG');
+      toast.error('Failed to export SVG', { id: toastId });
       console.error(err);
     } finally {
       setExportingType(null);
