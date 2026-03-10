@@ -13,6 +13,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useCanvasStore } from '@/stores/useCanvasStore';
 import { TableNode } from './TableNode';
+import { RelationshipEdge } from './RelationshipEdge';
 import { ZoomControls } from './ZoomControls';
 import { useTheme } from 'next-themes';
 import { Plus } from 'lucide-react';
@@ -22,6 +23,10 @@ const nodeTypes = {
   tableNode: TableNode,
 };
 
+const edgeTypes = {
+  relationshipEdge: RelationshipEdge,
+};
+
 function Flow() {
   const { theme } = useTheme();
   const {
@@ -29,6 +34,8 @@ function Flow() {
     nodes,
     edges,
     onNodesChange,
+    onEdgesChange,
+    onConnect,
     setSelectedTable,
     setSelectedColumn,
     addTable
@@ -63,8 +70,11 @@ function Flow() {
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
@@ -104,5 +114,9 @@ function Flow() {
 }
 
 export function Canvas() {
-  return <Flow />;
+  return (
+    <ReactFlowProvider>
+      <Flow />
+    </ReactFlowProvider>
+  );
 }

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Project, Table, Column, Relationship } from '@/lib/types';
 import { db } from '@/lib/db';
 import { nanoid } from 'nanoid';
-import { Node, Edge, NodeChange } from '@xyflow/react';
+import { Node, Edge, NodeChange, EdgeChange, Connection, applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 
 interface CanvasState {
   project: Project | null;
@@ -28,12 +28,18 @@ interface CanvasState {
   deleteColumn: (tableId: string, columnId: string) => void;
   reorderColumns: (_tableId: string, _startIndex: number, _endIndex: number) => void;
 
+  // Relationship (Edge) operations
+  onConnect: (connection: Connection) => void;
+  updateRelationship: (edgeId: string, updates: Partial<Relationship>) => void;
+  deleteRelationship: (edgeId: string) => void;
+
   // Selection
   setSelectedTable: (id: string | null) => void;
   setSelectedColumn: (id: string | null) => void;
 
   // Sync ReactFlow Nodes
   onNodesChange: (changes: NodeChange[]) => void;
+  onEdgesChange: (changes: EdgeChange[]) => void;
 }
 
 const colors = [
@@ -68,11 +74,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       data: table,
     }));
 
-    set({ project, nodes, edges: [], isLoading: false }); // Edges pending phase 5
+    const edges: Edge<Relationship>[] = (project.relationships || []).map(rel => {
+      const sourceTable = project.tables.find(t => t.id === rel.sourceTableId);
+      return {
+        id: rel.id,
+        source: rel.sourceTableId,
+        sourceHandle: `${rel.sourceColumnId}-right`,
+        target: rel.targetTableId,
+        targetHandle: `${rel.targetColumnId}-left`,
+        type: 'relationshipEdge',
+        data: rel,
+        style: { stroke: sourceTable?.color || 'var(--accent-blue)' },
+      }
+    });
+
+    set({ project, nodes, edges, isLoading: false });
   },
 
   saveProject: async () => {
-    const { project, nodes } = get();
+    const { project, nodes, edges } = get();
     if (!project) return;
 
     const tables = nodes.map(n => ({
@@ -80,7 +100,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       position: n.position,
     }));
 
-    const updatedProject = { ...project, tables, updatedAt: new Date().toISOString() };
+    const relationships = edges.map(e => e.data as Relationship);
+
+    const updatedProject = { ...project, tables, relationships, updatedAt: new Date().toISOString() };
     await db.saveProject(updatedProject);
     set({ project: updatedProject });
   },
@@ -128,19 +150,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   updateTable: (id: string, updates: Partial<Table>) => {
-    const { nodes, saveProject } = get();
-    set({
-      nodes: nodes.map(n =>
-        n.id === id ? { ...n, data: { ...n.data, ...updates } } : n
-      )
-    });
+    const { nodes, edges, saveProject } = get();
+    const newNodes = nodes.map(n =>
+      n.id === id ? { ...n, data: { ...n.data, ...updates } } : n
+    );
+
+    // update edge colors if table color changed
+    let newEdges = edges;
+    if (updates.color) {
+      newEdges = edges.map(e =>
+        e.source === id ? { ...e, style: { ...e.style, stroke: updates.color } } : e
+      );
+    }
+
+    set({ nodes: newNodes, edges: newEdges });
     saveProject();
   },
 
   deleteTable: (id: string) => {
-    const { nodes, selectedTableId, saveProject } = get();
+    const { nodes, edges, selectedTableId, saveProject } = get();
     set({
       nodes: nodes.filter(n => n.id !== id),
+      edges: edges.filter(e => e.source !== id && e.target !== id),
       selectedTableId: selectedTableId === id ? null : selectedTableId
     });
     saveProject();
@@ -227,7 +258,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   deleteColumn: (tableId: string, columnId: string) => {
-    const { nodes, selectedColumnId, saveProject } = get();
+    const { nodes, edges, selectedColumnId, saveProject } = get();
     set({
       nodes: nodes.map(n => {
         if (n.id === tableId) {
@@ -235,6 +266,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }
         return n;
       }),
+      // Remove any relationships attached to this column
+      edges: edges.filter(e =>
+        !(e.source === tableId && e.sourceHandle === `${columnId}-right`) &&
+        !(e.target === tableId && e.targetHandle === `${columnId}-left`)
+      ),
       selectedColumnId: selectedColumnId === columnId ? null : selectedColumnId
     });
     saveProject();
@@ -244,27 +280,84 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
      // Pending Drag & Drop implementation
   },
 
+  onConnect: (connection: Connection) => {
+    const { nodes, edges, saveProject, updateColumn } = get();
+    if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) return;
+
+    // sourceHandle is colId-right, targetHandle is colId-left
+    const sourceColId = connection.sourceHandle.replace('-right', '');
+    const targetColId = connection.targetHandle.replace('-left', '');
+
+    // Prevent self-loops on same column or existing relationships
+    if (sourceColId === targetColId) return;
+    const exists = edges.find(e => e.sourceHandle === connection.sourceHandle && e.targetHandle === connection.targetHandle);
+    if (exists) return;
+
+    const newRel: Relationship = {
+      id: nanoid(),
+      sourceTableId: connection.source,
+      sourceColumnId: sourceColId,
+      targetTableId: connection.target,
+      targetColumnId: targetColId,
+      type: '1:N',
+      label: null,
+    };
+
+    const sourceTable = nodes.find(n => n.id === connection.source);
+
+    const newEdge: Edge<Relationship> = {
+      id: newRel.id,
+      source: connection.source,
+      sourceHandle: connection.sourceHandle,
+      target: connection.target,
+      targetHandle: connection.targetHandle,
+      type: 'relationshipEdge',
+      data: newRel,
+      style: { stroke: sourceTable?.data?.color || 'var(--accent-blue)' },
+    };
+
+    set({ edges: [...edges, newEdge] });
+
+    // Automatically set target column to foreign key
+    updateColumn(connection.target, targetColId, { isForeignKey: true });
+
+    saveProject();
+  },
+
+  updateRelationship: (edgeId: string, updates: Partial<Relationship>) => {
+    const { edges, saveProject } = get();
+    set({
+      edges: edges.map(e =>
+        e.id === edgeId ? { ...e, data: { ...e.data as Relationship, ...updates } } : e
+      )
+    });
+    saveProject();
+  },
+
+  deleteRelationship: (edgeId: string) => {
+    const { edges, saveProject } = get();
+    set({ edges: edges.filter(e => e.id !== edgeId) });
+    saveProject();
+  },
+
   setSelectedTable: (id: string | null) => set({ selectedTableId: id }),
   setSelectedColumn: (id: string | null) => set({ selectedColumnId: id }),
 
   onNodesChange: (changes: NodeChange[]) => {
-    // Only process position changes for now, others handled by specific actions
     set((state) => {
-      const updatedNodes = [...state.nodes];
-      changes.forEach((change: NodeChange) => {
-        if (change.type === 'position' && change.position) {
-          const nodeIndex = updatedNodes.findIndex(n => n.id === change.id);
-          if (nodeIndex !== -1) {
-            updatedNodes[nodeIndex] = {
-              ...updatedNodes[nodeIndex],
-              position: change.position,
-              // Update underlying table data position too
-              data: { ...updatedNodes[nodeIndex].data, position: change.position }
-            };
-          }
-        }
-      });
-      return { nodes: updatedNodes };
+      const updatedNodes = applyNodeChanges(changes, state.nodes) as Node<Table>[];
+      // Sync underlying table data position
+      const finalNodes = updatedNodes.map(n => ({
+         ...n,
+         data: { ...n.data, position: n.position }
+      }));
+      return { nodes: finalNodes };
     });
+  },
+
+  onEdgesChange: (changes: EdgeChange[]) => {
+    set((state) => ({
+      edges: applyEdgeChanges(changes, state.edges) as Edge<Relationship>[],
+    }));
   }
 }));
