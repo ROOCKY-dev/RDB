@@ -8,30 +8,69 @@ import { LeftPanel } from "@/components/panels/LeftPanel"
 import { RightPanel } from "@/components/panels/RightPanel"
 import { SqlModal } from "@/components/modals/SqlModal"
 import { ExportModal } from "@/components/modals/ExportModal"
+import { CommandPalette } from "@/components/command-palette/CommandPalette"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { ArrowLeft, Code2, Download, Settings, Command } from "lucide-react"
 import { ReactFlowProvider } from "@xyflow/react"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { useUndoRedo } from "@/hooks/useUndoRedo"
 
 export default function ProjectWorkspace() {
   const params = useParams()
   const router = useRouter()
   const projectId = params.id as string
 
-  const { loadProject, project, isLoading, updateTable } = useCanvasStore()
+  const { loadProject, project, isLoading, saveProject, nodes, edges } = useCanvasStore()
+  const { undo, redo, takeSnapshot } = useUndoRedo()
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [editName, setEditName] = useState("")
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
 
+  // Initial load
   useEffect(() => {
     if (projectId) {
       loadProject(projectId).then(() => {
          const proj = useCanvasStore.getState().project;
-         if(proj) setEditName(proj.name);
+         if(proj) {
+           setEditName(proj.name);
+           takeSnapshot(); // take initial snapshot
+         }
       });
     }
-  }, [projectId, loadProject])
+  }, [projectId, loadProject, takeSnapshot]);
+
+  // Track changes for history (simplified approach)
+  useEffect(() => {
+    if (!isLoading && project) {
+      const timer = setTimeout(() => {
+        takeSnapshot();
+      }, 300); // debounce snapshot
+      return () => clearTimeout(timer);
+    }
+  }, [nodes, edges, isLoading, project, takeSnapshot]);
+
+  // Global Keyboard Shortcuts
+  useKeyboardShortcuts([
+    {
+      combo: { key: 'k', metaKey: true },
+      handler: () => setIsCommandPaletteOpen(prev => !prev)
+    },
+    {
+      combo: { key: 'z', metaKey: true },
+      handler: undo
+    },
+    {
+      combo: { key: 'z', metaKey: true, shiftKey: true },
+      handler: redo
+    },
+    {
+      combo: { key: 's', metaKey: true },
+      handler: () => { saveProject() }
+    }
+  ]);
 
   if (isLoading) {
     return <div className="h-screen w-full flex items-center justify-center bg-bg-primary text-text-secondary">Loading Workspace...</div>
@@ -82,7 +121,12 @@ export default function ProjectWorkspace() {
          </div>
 
          <div className="flex items-center space-x-2">
-            <GlassButton variant="secondary" size="sm" className="space-x-2 hidden sm:flex">
+            <GlassButton
+              variant="secondary"
+              size="sm"
+              className="space-x-2 hidden sm:flex"
+              onClick={() => setIsCommandPaletteOpen(true)}
+            >
               <Command className="w-3.5 h-3.5 text-text-tertiary" />
               <span className="text-xs text-text-secondary">K</span>
             </GlassButton>
@@ -119,6 +163,11 @@ export default function ProjectWorkspace() {
           <Canvas />
           <LeftPanel />
           <RightPanel />
+          <CommandPalette
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            onOpenSqlModal={() => setIsSqlModalOpen(true)}
+          />
         </ReactFlowProvider>
       </main>
 

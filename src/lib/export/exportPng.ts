@@ -2,39 +2,47 @@ import { toPng } from 'html-to-image';
 import { Project } from '../types';
 
 export async function exportToPng(project: Project, options: { transparent?: boolean } = {}) {
-  const flowElement = document.querySelector('.react-flow__viewport') as HTMLElement;
+  // Exporting the entire react-flow container preserves the layout and bounds better
+  const flowElement = document.querySelector('.react-flow') as HTMLElement;
 
   if (!flowElement) {
     throw new Error('Canvas not found');
   }
 
-  // Find the exact bounds of the canvas content to crop the image
   const nodes = document.querySelectorAll('.react-flow__node');
   if (nodes.length === 0) {
     throw new Error('No tables to export');
   }
 
-  // Temporarily add a watermark
+  // Add watermark
   const watermark = document.createElement('div');
   watermark.innerHTML = 'Made with SchemaVision';
   watermark.style.position = 'absolute';
-  watermark.style.bottom = '-40px';
-  watermark.style.right = '0px';
+  watermark.style.bottom = '20px';
+  watermark.style.right = '20px';
   watermark.style.fontFamily = 'monospace';
   watermark.style.color = '#888';
   watermark.style.fontSize = '12px';
+  watermark.style.zIndex = '1000';
   flowElement.appendChild(watermark);
 
   try {
     const dataUrl = await toPng(flowElement, {
-      backgroundColor: options.transparent ? 'transparent' : '#0A0A0F', // fallback to dark theme bg
+      backgroundColor: options.transparent ? 'transparent' : '#0A0A0F',
       pixelRatio: 2,
-      style: {
-        transform: 'translate(0, 0) scale(1)', // Reset zoom/pan for clear render
-      },
+      // Setting width/height explicitly ensures the canvas doesn't get clipped
+      width: flowElement.offsetWidth,
+      height: flowElement.offsetHeight,
       filter: (node: HTMLElement) => {
-        // Filter out any UI controls if they were inside the viewport (they usually aren't, but just in case)
-        if (node.classList?.contains('react-flow__minimap') || node.classList?.contains('react-flow__controls')) {
+        // Exclude controls, panels, and our own UI overlays from the export
+        const classList = node.classList;
+        if (!classList) return true;
+
+        if (
+          classList.contains('react-flow__minimap') ||
+          classList.contains('react-flow__controls') ||
+          classList.contains('react-flow__panel')
+        ) {
           return false;
         }
         return true;
@@ -46,7 +54,6 @@ export async function exportToPng(project: Project, options: { transparent?: boo
     link.href = dataUrl;
     link.click();
   } finally {
-    // Cleanup watermark
     if (watermark.parentNode) {
       watermark.parentNode.removeChild(watermark);
     }
