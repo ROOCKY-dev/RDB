@@ -1,47 +1,51 @@
 import { toPng } from 'html-to-image';
-import { Project } from '../types';
+import { Project, Table } from '../types';
+import { getNodesBounds, getViewportForBounds, Node } from '@xyflow/react';
 
-export async function exportToPng(project: Project, options: { transparent?: boolean } = {}) {
-  // Exporting the entire react-flow container preserves the layout and bounds better
-  const flowElement = document.querySelector('.react-flow') as HTMLElement;
+export async function exportToPng(project: Project, nodes: Node<Table>[], options: { transparent?: boolean } = {}) {
+  // We target the .react-flow__viewport specifically, as recommended by React Flow
+  const flowElement = document.querySelector('.react-flow__viewport') as HTMLElement;
 
   if (!flowElement) {
     throw new Error('Canvas not found');
   }
 
-  const nodes = document.querySelectorAll('.react-flow__node');
   if (nodes.length === 0) {
     throw new Error('No tables to export');
   }
 
-  // Add watermark
-  const watermark = document.createElement('div');
-  watermark.innerHTML = 'Made with SchemaVision';
-  watermark.style.position = 'absolute';
-  watermark.style.bottom = '20px';
-  watermark.style.right = '20px';
-  watermark.style.fontFamily = 'monospace';
-  watermark.style.color = '#888';
-  watermark.style.fontSize = '12px';
-  watermark.style.zIndex = '1000';
-  flowElement.appendChild(watermark);
+  const imageWidth = 1920;
+  const imageHeight = 1080;
+
+  // Calculate the bounds of all nodes
+  const nodesBounds = getNodesBounds(nodes);
+
+  // Calculate the viewport configuration needed to fit all nodes
+  const viewport = getViewportForBounds(
+    nodesBounds,
+    imageWidth,
+    imageHeight,
+    0.5,
+    2,
+    0.2 // padding
+  );
 
   try {
     const dataUrl = await toPng(flowElement, {
       backgroundColor: options.transparent ? 'transparent' : '#0A0A0F',
-      pixelRatio: 2,
-      // Setting width/height explicitly ensures the canvas doesn't get clipped
-      width: flowElement.offsetWidth,
-      height: flowElement.offsetHeight,
+      width: imageWidth,
+      height: imageHeight,
+      style: {
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+      },
       filter: (node: HTMLElement) => {
-        // Exclude controls, panels, and our own UI overlays from the export
-        const classList = node.classList;
-        if (!classList) return true;
-
+        // Exclude internal React Flow UI controls if somehow inside viewport
         if (
-          classList.contains('react-flow__minimap') ||
-          classList.contains('react-flow__controls') ||
-          classList.contains('react-flow__panel')
+          node.classList?.contains('react-flow__minimap') ||
+          node.classList?.contains('react-flow__controls') ||
+          node.classList?.contains('react-flow__panel')
         ) {
           return false;
         }
@@ -53,9 +57,8 @@ export async function exportToPng(project: Project, options: { transparent?: boo
     link.download = `${project.name}-schema.png`;
     link.href = dataUrl;
     link.click();
-  } finally {
-    if (watermark.parentNode) {
-      watermark.parentNode.removeChild(watermark);
-    }
+  } catch (error) {
+    console.error('Failed in html-to-image toPng', error);
+    throw error;
   }
 }

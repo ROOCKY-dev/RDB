@@ -17,7 +17,7 @@ interface ExportModalProps {
 type ExportType = 'png' | 'svg' | 'json' | null;
 
 export function ExportModal({ isOpen, onClose }: ExportModalProps) {
-  const { project } = useCanvasStore();
+  const { project, nodes } = useCanvasStore();
   const [exportingType, setExportingType] = useState<ExportType>(null);
   const [transparentBg, setTransparentBg] = useState(false);
 
@@ -27,7 +27,9 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     const toastId = toast.loading('Generating PNG export...');
     try {
       setExportingType('png');
-      await exportToPng(project, { transparent: transparentBg });
+      // Adding a small delay helps React render any final states before snapshotting
+      await new Promise(r => setTimeout(r, 100));
+      await exportToPng(project, nodes, { transparent: transparentBg });
       toast.success('Exported PNG successfully', { id: toastId });
       onClose();
     } catch (err) {
@@ -42,7 +44,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     const toastId = toast.loading('Generating SVG export...');
     try {
       setExportingType('svg');
-      await exportToSvg(project, { transparent: transparentBg });
+      await new Promise(r => setTimeout(r, 100));
+      await exportToSvg(project, nodes, { transparent: transparentBg });
       toast.success('Exported SVG successfully', { id: toastId });
       onClose();
     } catch (err) {

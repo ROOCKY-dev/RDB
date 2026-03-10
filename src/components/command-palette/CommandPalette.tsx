@@ -16,7 +16,7 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({ isOpen, onClose, onOpenSqlModal }: CommandPaletteProps) {
-  const { project, addTable, saveProject, setSelectedTable } = useCanvasStore();
+  const { project, addTable, saveProject, setSelectedTable, nodes } = useCanvasStore();
   const { fitView, setCenter } = useReactFlow();
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -28,8 +28,8 @@ export function CommandPalette({ isOpen, onClose, onOpenSqlModal }: CommandPalet
     { id: 'save', icon: Save, label: 'Save Project', action: async () => { await saveProject(); toast.success('Project saved'); } },
     { id: 'sql', icon: Search, label: 'Generate SQL', action: onOpenSqlModal },
     { id: 'fit-view', icon: Maximize, label: 'Fit View to Screen', action: () => fitView({ padding: 0.2, duration: 500 }) },
-    { id: 'export-png', icon: ImageIcon, label: 'Export as PNG', action: () => { if (project) exportToPng(project); } },
-    { id: 'export-svg', icon: ImageIcon, label: 'Export as SVG', action: () => { if (project) exportToSvg(project); } },
+    { id: 'export-png', icon: ImageIcon, label: 'Export as PNG', action: () => { if (project) exportToPng(project, nodes); } },
+    { id: 'export-svg', icon: ImageIcon, label: 'Export as SVG', action: () => { if (project) exportToSvg(project, nodes); } },
     { id: 'export-json', icon: FileJson, label: 'Export as JSON', action: () => { if (project) exportToJson(project); } },
   ];
 
