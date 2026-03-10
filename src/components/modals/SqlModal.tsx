@@ -7,6 +7,8 @@ import { generateSQL } from '@/lib/sql-generators';
 import { X, Copy, Download, Check } from 'lucide-react';
 import { ProjectSettings } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-sql';
 
 interface SqlModalProps {
   isOpen: boolean;
@@ -25,6 +27,12 @@ export function SqlModal({ isOpen, onClose }: SqlModalProps) {
       }, 0);
     }
   }, [project, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      Prism.highlightAll();
+    }
+  }, [isOpen, dialect, project]);
 
   const sql = project && isOpen ? generateSQL(project, dialect) : '';
 
@@ -116,15 +124,87 @@ export function SqlModal({ isOpen, onClose }: SqlModalProps) {
 
               {/* Code Area */}
               <div className="flex-1 overflow-auto bg-[#0d0d12] p-6 relative group custom-scrollbar">
-                <pre className="font-mono text-[13px] leading-relaxed text-blue-300">
-                  <code dangerouslySetInnerHTML={{
-                    __html: sql
-                      .replace(/--.*/g, match => `<span class="text-text-tertiary">${match}</span>`)
-                      .replace(/\/\*[\s\S]*?\*\//g, match => `<span class="text-text-tertiary">${match}</span>`)
-                      .replace(/\b(CREATE|TABLE|ALTER|ADD|CONSTRAINT|FOREIGN|KEY|REFERENCES|PRIMARY|UNIQUE|INDEX|ON|DEFAULT|NOT|NULL|COMMENT|IS|EXEC|IDENTITY|GO)\b/g, match => `<span class="text-accent-purple font-bold">${match}</span>`)
-                      .replace(/\b(INT|BIGINT|SMALLINT|SERIAL|BIGSERIAL|SMALLSERIAL|VARCHAR|CHAR|TEXT|BOOLEAN|DATE|TIMESTAMP|TIMESTAMPTZ|FLOAT|DOUBLE|DECIMAL|JSON|JSONB|BLOB|ENUM|INTEGER)\b/g, match => `<span class="text-accent-yellow">${match}</span>`)
-                      .replace(/['"`\[\]]/g, match => `<span class="text-accent-green">${match}</span>`)
-                  }} />
+                <style dangerouslySetInnerHTML={{__html: `
+                  code[class*="language-"],
+                  pre[class*="language-"] {
+                    color: #f8f8f2;
+                    text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+                    font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+                    font-size: 13px;
+                    line-height: 1.5;
+                    direction: ltr;
+                    text-align: left;
+                    white-space: pre;
+                    word-spacing: normal;
+                    word-break: normal;
+                    tab-size: 4;
+                    hyphens: none;
+                  }
+                  .token.comment,
+                  .token.prolog,
+                  .token.doctype,
+                  .token.cdata {
+                    color: #8292a2;
+                  }
+                  .token.punctuation {
+                    color: #f8f8f2;
+                  }
+                  .token.namespace {
+                    opacity: .7;
+                  }
+                  .token.property,
+                  .token.tag,
+                  .token.constant,
+                  .token.symbol,
+                  .token.deleted {
+                    color: #f92672;
+                  }
+                  .token.boolean,
+                  .token.number {
+                    color: #ae81ff;
+                  }
+                  .token.selector,
+                  .token.attr-name,
+                  .token.string,
+                  .token.char,
+                  .token.builtin,
+                  .token.inserted {
+                    color: #a6e22e;
+                  }
+                  .token.operator,
+                  .token.entity,
+                  .token.url,
+                  .language-css .token.string,
+                  .style .token.string,
+                  .token.variable {
+                    color: #f8f8f2;
+                  }
+                  .token.atrule,
+                  .token.attr-value,
+                  .token.function,
+                  .token.class-name {
+                    color: #e6db74;
+                  }
+                  .token.keyword {
+                    color: #66d9ef;
+                  }
+                  .token.regex,
+                  .token.important {
+                    color: #fd971f;
+                  }
+                  .token.important,
+                  .token.bold {
+                    font-weight: bold;
+                  }
+                  .token.italic {
+                    font-style: italic;
+                  }
+                  .token.entity {
+                    cursor: help;
+                  }
+                `}} />
+                <pre className="font-mono text-[13px] leading-relaxed">
+                  <code className="language-sql">{sql}</code>
                 </pre>
               </div>
 
