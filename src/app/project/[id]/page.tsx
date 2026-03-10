@@ -7,6 +7,7 @@ import { Canvas } from "@/components/canvas/Canvas"
 import { LeftPanel } from "@/components/panels/LeftPanel"
 import { RightPanel } from "@/components/panels/RightPanel"
 import { SqlModal } from "@/components/modals/SqlModal"
+import { ExportModal } from "@/components/modals/ExportModal"
 import { GlassButton } from "@/components/ui/GlassButton"
 import { ArrowLeft, Code2, Download, Settings, Command } from "lucide-react"
 import { ReactFlowProvider } from "@xyflow/react"
@@ -16,11 +17,12 @@ export default function ProjectWorkspace() {
   const router = useRouter()
   const projectId = params.id as string
 
-  const { loadProject, project, isLoading } = useCanvasStore()
+  const { loadProject, project, isLoading, updateTable } = useCanvasStore()
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [editName, setEditName] = useState("")
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(false)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   useEffect(() => {
     if (projectId) {
@@ -41,7 +43,7 @@ export default function ProjectWorkspace() {
 
   const handleRename = () => {
     setIsRenaming(false);
-    // TODO: wire up global rename
+    // Project rename logic would go here
   }
 
   return (
@@ -80,12 +82,12 @@ export default function ProjectWorkspace() {
          </div>
 
          <div className="flex items-center space-x-2">
-            <GlassButton variant="secondary" size="sm" className="space-x-2">
+            <GlassButton variant="secondary" size="sm" className="space-x-2 hidden sm:flex">
               <Command className="w-3.5 h-3.5 text-text-tertiary" />
               <span className="text-xs text-text-secondary">K</span>
             </GlassButton>
 
-            <div className="w-[1px] h-4 bg-glass-border mx-2" />
+            <div className="w-[1px] h-4 bg-glass-border mx-2 hidden sm:block" />
 
             <GlassButton
               variant="primary"
@@ -97,7 +99,12 @@ export default function ProjectWorkspace() {
               <span>SQL</span>
             </GlassButton>
 
-            <GlassButton variant="icon" size="sm" className="text-text-secondary">
+            <GlassButton
+              variant="icon"
+              size="sm"
+              className="text-text-secondary"
+              onClick={() => setIsExportModalOpen(true)}
+            >
               <Download className="w-4 h-4" />
             </GlassButton>
 
@@ -116,6 +123,7 @@ export default function ProjectWorkspace() {
       </main>
 
       <SqlModal isOpen={isSqlModalOpen} onClose={() => setIsSqlModalOpen(false)} />
+      <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} />
     </div>
   )
 }
